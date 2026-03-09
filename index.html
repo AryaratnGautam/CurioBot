@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>CurioBot</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Syne+Mono&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0a0a0a;
+  --card: #111;
+  --line: #1a1a1a;
+  --sub: #3a3a3a;
+  --text: #aaa;
+  --bright: #f5f5f5;
+  --acc: #c8ff57;
+  --acc2: #57e8ff;
+  --red: #ff5757;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  font-family: 'Syne', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* ── FULL SCREEN LAYOUT ── */
+.screen {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 52px 28px 48px;
+  position: relative;
+}
+
+/* ── BACKGROUND GLOW ── */
+.glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  transition: all 1s ease;
+}
+.glow1 { width: 280px; height: 280px; background: var(--acc); opacity: 0.04; top: -60px; left: -60px; }
+.glow2 { width: 240px; height: 240px; background: var(--acc2); opacity: 0.04; bottom: 40px; right: -40px; }
+.glow1.listening { opacity: 0.10; transform: scale(1.3); }
+.glow2.speaking  { opacity: 0.12; transform: scale(1.4); }
+
+/* ── TOP ── */
+.top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--bright);
+  text-transform: uppercase;
+  font-family: 'Syne Mono', monospace;
+}
+.logo span { color: var(--acc); }
+
+.lang-sw {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.lb {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-family: 'Syne', sans-serif;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--sub);
+  transition: all 0.2s;
+}
+.lb.on { background: var(--acc); color: #000; border-radius: 99px; }
+
+/* ── CENTER ── */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  flex: 1;
+  justify-content: center;
+}
+
+/* ── AVATAR RING ── */
+.avatar-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid var(--acc);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.ring1 { width: 130px; height: 130px; }
+.ring2 { width: 160px; height: 160px; }
+.ring3 { width: 190px; height: 190px; }
+
+/* listening pulse */
+@keyframes ringPulse {
+  0%   { transform: scale(0.95); opacity: 0.5; }
+  100% { transform: scale(1.05); opacity: 0; }
+}
+.listening .ring1 { animation: ringPulse 1.2s ease-out infinite 0s; opacity: 1; }
+.listening .ring2 { animation: ringPulse 1.2s ease-out infinite 0.3s; opacity: 1; }
+.listening .ring3 { animation: ringPulse 1.2s ease-out infinite 0.6s; opacity: 1; }
+
+/* speaking wave rings */
+@keyframes speakRing {
+  0%   { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+.speaking .ring1 { border-color: var(--acc2); animation: speakRing 0.8s ease-out infinite 0s; opacity: 1; }
+.speaking .ring2 { border-color: var(--acc2); animation: speakRing 0.8s ease-out infinite 0.2s; opacity: 1; }
+.speaking .ring3 { border-color: var(--acc2); animation: speakRing 0.8s ease-out infinite 0.4s; opacity: 1; }
+
+.avatar {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  position: relative;
+  z-index: 1;
+  transition: all 0.4s ease;
+}
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+@keyframes speakBob { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+.avatar.idle     { animation: float 3s ease-in-out infinite; }
+.avatar.thinking { animation: none; }
+.avatar.thinking::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--acc);
+  animation: spin 0.7s linear infinite;
+}
+.avatar.speaking { animation: speakBob 0.6s ease-in-out infinite; border-color: var(--acc2); box-shadow: 0 0 30px rgba(87,232,255,0.2); }
+.avatar.listening { border-color: var(--acc); box-shadow: 0 0 30px rgba(200,255,87,0.2); }
+
+/* ── STATUS TEXT ── */
+.status-area { text-align: center; }
+.status-main {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bright);
+  letter-spacing: -0.3px;
+  min-height: 28px;
+  transition: all 0.3s;
+}
+.status-sub {
+  font-size: 12px;
+  color: var(--sub);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 5px;
+  font-family: 'Syne Mono', monospace;
+  min-height: 18px;
+  transition: all 0.3s;
+}
+.status-sub.acc  { color: var(--acc); }
+.status-sub.acc2 { color: var(--acc2); }
+.status-sub.red  { color: var(--red); }
+
+/* ── TRANSCRIPT BUBBLE ── */
+.transcript {
+  width: 100%;
+  max-width: 340px;
+  min-height: 60px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-weight: 400;
+  text-align: left;
+  overflow-y: auto;
+  max-height: 140px;
+  display: none;
+  transition: all 0.3s;
+}
+.transcript.visible { display: block; }
+.transcript.user-t  { border-left: 2px solid var(--acc); color: var(--bright); }
+.transcript.bot-t   { border-left: 2px solid var(--acc2); color: var(--text); }
+
+/* ── BOTTOM CONTROLS ── */
+.controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+/* Big mic button */
+.mic-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@keyframes micPulse { 0%{box-shadow:0 0 0 0 rgba(255,87,87,0.5)} 70%{box-shadow:0 0 0 24px rgba(255,87,87,0)} 100%{box-shadow:0 0 0 0 rgba(255,87,87,0)} }
+
+.mic-btn {
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  font-size: 30px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.mic-btn:active { transform: scale(0.94); }
+.mic-btn.listening {
+  background: var(--red);
+  border-color: var(--red);
+  animation: micPulse 1s infinite;
+}
+.mic-btn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Action row */
+.action-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.act-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.act-icon {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: all 0.2s;
+}
+.act-btn:active .act-icon { transform: scale(0.92); background: var(--line); }
+.act-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--sub);
+  text-transform: uppercase;
+  font-family: 'Syne Mono', monospace;
+}
+.act-btn.stop-btn .act-icon { border-color: var(--red); }
+.act-btn.stop-btn .act-label { color: var(--red); }
+.act-btn.replay-btn .act-icon { border-color: var(--acc2); }
+
+/* mic hint */
+.mic-hint {
+  font-size: 11px;
+  color: var(--sub);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: 'Syne Mono', monospace;
+}
+
+/* toast */
+@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+.toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+  background: var(--card); border: 1px solid var(--line);
+  color: var(--text); padding: 9px 18px;
+  font-family: 'Syne Mono', monospace; font-size: 11px; letter-spacing: 1px;
+  z-index: 9999; pointer-events: none;
+  animation: toastIn 0.2s ease; white-space: nowrap; border-radius: 4px;
+}
+</style>
+</head>
+<body>
+
+<div class="glow glow1" id="glow1"></div>
+<div class="glow glow2" id="glow2"></div>
+
+<div class="screen">
+
+  <!-- TOP -->
+  <div class="top">
+    <div class="logo">CURIO<span>BOT</span></div>
+    <div class="lang-sw">
+      <button class="lb" id="btnEn" onclick="setLang('english')">EN</button>
+      <button class="lb on" id="btnHi" onclick="setLang('hinglish')">HI</button>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center">
+    <div class="avatar-wrap" id="avatarWrap">
+      <div class="ring ring1"></div>
+      <div class="ring ring2"></div>
+      <div class="ring ring3"></div>
+      <div class="avatar idle" id="avatar">🤖</div>
+    </div>
+
+    <div class="status-area">
+      <div class="status-main" id="statusMain">Tap to talk</div>
+      <div class="status-sub" id="statusSub">READY</div>
+    </div>
+
+    <div class="transcript" id="transcript"></div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="controls">
+    <div class="action-row">
+      <div class="act-btn stop-btn" id="stopBtn" onclick="stopAll()" style="display:none">
+        <div class="act-icon">⏹</div>
+        <div class="act-label">Stop</div>
+      </div>
+
+      <div class="mic-ring">
+        <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙</button>
+      </div>
+
+      <div class="act-btn replay-btn" id="replayBtn" onclick="replayLast()" style="display:none">
+        <div class="act-icon">🔁</div>
+        <div class="act-label">Replay</div>
+      </div>
+    </div>
+    <div class="mic-hint" id="micHint">tap mic • bol • jawab suno</div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  🔑  APNI KEYS YAHAN DAALO
+// ═══════════════════════════════════════════════
+const GROQ_KEY      = "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";      // console.groq.com/keys
+const ELEVENLABS_KEY = "sk_826bb44514cf834606471c9555ef73f53cd21b088f72e4a8"; // elevenlabs.io → Profile → API Key
+const VOICE_ID      = "TxGEqnHWrfWFTfGW9XjX";       // Adam (male). Badlne ke liye neeche dekho 👇
+// ─── Available Voice IDs ────────────────────────
+// MALE:   Adam   = pNInz6obpgDQGcFmaJgB  ← default
+//         Josh   = TxGEqnHWrfWFTfGW9XjX
+//         Antoni = ErXwobaYiN019PkySvjV
+//         Sam    = yoZ06aMxZJJ28mfd3POQ
+// FEMALE: Bella  = EXAVITQu4vr4xnSDxMaL
+//         Rachel = 21m00Tcm4TlvDq8ikWAM
+//         Elli   = MF3mGyEYCl7XYWbV9V6O
+// ═══════════════════════════════════════════════
+
+const PROMPTS = {
+  english:`You are CurioBot — a brilliant AI best friend. Talk like you're voice chatting with your smartest friend.
+Keep answers SHORT and conversational — this is a voice chat, not an essay.
+2-4 sentences max. React genuinely, get excited, be real.
+No markdown, no bullet points — just natural spoken sentences.
+End with one short curious question.`,
+
+  hinglish:`Tu CurioBot hai — yaar ka yaar. Yeh voice chat hai toh bilkul natural baat kar jaise phone pe karte ho.
+2-4 chhote sentences max. Genuinely react kar, excited ho, real reh.
+Koi markdown, koi bullet points nahi — sirf natural bolne wali Hinglish.
+End mein ek chhota sa sawaal zaroor pooch.`
+};
+
+let lang = 'hinglish';
+let history = [];
+let isListening = false;
+let isSpeaking = false;
+let isThinking = false;
+let recognition = null;
+let currentAudio = null;
+let lastReply = '';
+
+// ── STATE MACHINE ─────────────────────────────
+function setState(s) {
+  const av    = document.getElementById('avatar');
+  const wrap  = document.getElementById('avatarWrap');
+  const main  = document.getElementById('statusMain');
+  const sub   = document.getElementById('statusSub');
+  const g1    = document.getElementById('glow1');
+  const g2    = document.getElementById('glow2');
+  const hint  = document.getElementById('micHint');
+  const stopB = document.getElementById('stopBtn');
+  const micB  = document.getElementById('micBtn');
+
+  // Reset
+  av.className = 'avatar';
+  wrap.className = 'avatar-wrap';
+  g1.className = 'glow glow1';
+  g2.className = 'glow glow2';
+  sub.className = 'status-sub';
+  stopB.style.display = 'none';
+  micB.className = 'mic-btn';
+
+  if (s === 'idle') {
+    av.className = 'avatar idle';
+    main.textContent = lang === 'hinglish' ? 'Tap karke bol' : 'Tap to talk';
+    sub.textContent = 'READY';
+    hint.textContent = lang === 'hinglish' ? 'tap mic • bol • jawab suno' : 'tap mic • speak • listen';
+  }
+  else if (s === 'listening') {
+    av.className = 'avatar listening';
+    wrap.className = 'avatar-wrap listening';
+    g1.className = 'glow glow1 listening';
+    main.textContent = lang === 'hinglish' ? 'Sun raha hoon...' : 'Listening...';
+    sub.textContent = '● REC';
+    sub.className = 'status-sub red';
+    hint.textContent = lang === 'hinglish' ? 'bol do bhai, sun raha hoon' : 'go ahead, i\'m listening';
+    micB.className = 'mic-btn listening';
+    stopB.style.display = 'flex';
+  }
+  else if (s === 'thinking') {
+    av.className = 'avatar thinking';
+    main.textContent = lang === 'hinglish' ? 'Soch raha hoon...' : 'Thinking...';
+    sub.textContent = '● PROCESSING';
+    sub.className = 'status-sub acc';
+    hint.textContent = '';
+    micB.className = 'mic-btn disabled';
+  }
+  else if (s === 'speaking') {
+    av.className = 'avatar speaking';
+    wrap.className = 'avatar-wrap speaking';
+    g2.className = 'glow glow2 speaking';
+    main.textContent = lang === 'hinglish' ? 'Bol raha hoon...' : 'Speaking...';
+    sub.textContent = '● SPEAKING';
+    sub.className = 'status-sub acc2';
+    hint.textContent = lang === 'hinglish' ? 'replay ke liye 🔁 dabao' : 'tap 🔁 to replay';
+    stopB.style.display = 'flex';
+    micB.className = 'mic-btn disabled';
+  }
+}
+
+function showTranscript(text, type) {
+  const el = document.getElementById('transcript');
+  el.textContent = text;
+  el.className = 'transcript visible ' + type;
+}
+function hideTranscript() {
+  document.getElementById('transcript').className = 'transcript';
+}
+
+// ── LANG ──────────────────────────────────────
+function setLang(l) {
+  lang = l;
+  document.getElementById('btnEn').className = 'lb' + (l==='english'?' on':'');
+  document.getElementById('btnHi').className = 'lb' + (l==='hinglish'?' on':'');
+  if (recognition) recognition.lang = l==='hinglish' ? 'hi-IN' : 'en-US';
+  if (!isListening && !isSpeaking && !isThinking) setState('idle');
+}
+
+// ── MIC / SPEECH RECOGNITION ──────────────────
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'hi-IN';
+
+  recognition.onresult = e => {
+    let fin = '', inter = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) fin += e.results[i][0].transcript;
+      else inter += e.results[i][0].transcript;
+    }
+    const heard = fin || inter;
+    if (heard) showTranscript(heard, 'user-t');
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    const t = document.getElementById('transcript').textContent.trim();
+    if (t && t.length > 1) {
+      sendToGroq(t);
+    } else {
+      setState('idle');
+      hideTranscript();
+    }
+  };
+
+  recognition.onerror = e => {
+    isListening = false;
+    setState('idle');
+    if (e.error !== 'no-speech') showToast(e.error.toUpperCase());
+  };
+}
+
+function toggleMic() {
+  if (isThinking || isSpeaking) return;
+  if (!recognition) { showToast('USE CHROME BROWSER'); return; }
+  if (!GROQ_KEY || GROQ_KEY === 'APNI_GROQ_KEY_YAHAN') { showToast('GROQ KEY DAALO CODE MEIN'); return; }
+
+  if (isListening) {
+    recognition.stop();
+    isListening = false;
+    setState('idle');
+    hideTranscript();
+  } else {
+    stopSpeaking();
+    hideTranscript();
+    recognition.lang = lang === 'hinglish' ? 'hi-IN' : 'en-US';
+    recognition.start();
+    isListening = true;
+    setState('listening');
+  }
+}
+
+function stopAll() {
+  if (isListening) { recognition.stop(); isListening = false; }
+  stopSpeaking();
+  setState('idle');
+  hideTranscript();
+}
+
+// ── GROQ CHAT ─────────────────────────────────
+async function sendToGroq(text) {
+  isThinking = true;
+  setState('thinking');
+  showTranscript(text, 'user-t');
+  history.push({ role: 'user', content: text });
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'system', content: PROMPTS[lang] }, ...history],
+        max_tokens: 300,
+        temperature: 0.9
+      })
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const reply = data.choices?.[0]?.message?.content || '...';
+    history.push({ role: 'assistant', content: reply });
+    lastReply = reply;
+
+    isThinking = false;
+    showTranscript(reply, 'bot-t');
+    document.getElementById('replayBtn').style.display = 'flex';
+    await speakReply(reply);
+
+  } catch (e) {
+    isThinking = false;
+    setState('idle');
+    showToast('ERROR: ' + e.message.slice(0, 40).toUpperCase());
+    console.error(e);
+  }
+}
+
+// ── ELEVENLABS TTS ─────────────────────────────
+function cleanForVoice(text) {
+  return text
+    .replace(/[*_`#>\[\]]/g, '')
+    .replace(/🔍[^\n]*/g, '')
+    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function speakReply(text) {
+  if (!ELEVENLABS_KEY || ELEVENLABS_KEY === 'APNI_ELEVENLABS_KEY_YAHAN') {
+    setState('idle');
+    return;
+  }
+
+  isSpeaking = true;
+  setState('speaking');
+  const clean = cleanForVoice(text);
+
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_KEY },
+      body: JSON.stringify({
+        text: clean,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.45,
+          similarity_boost: 0.80,
+          style: 0.30,
+          use_speaker_boost: true
+        }
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.detail?.message || 'EL error ' + res.status);
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    currentAudio = new Audio(url);
+
+    currentAudio.onended = () => {
+      URL.revokeObjectURL(url);
+      isSpeaking = false;
+      currentAudio = null;
+      setState('idle');
+    };
+    currentAudio.onerror = () => {
+      isSpeaking = false;
+      currentAudio = null;
+      setState('idle');
+    };
+
+    await currentAudio.play();
+
+  } catch (e) {
+    console.error('TTS error:', e);
+    isSpeaking = false;
+    setState('idle');
+    showToast('VOICE ERROR: ' + e.message.slice(0, 35).toUpperCase());
+  }
+}
+
+function stopSpeaking() {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  isSpeaking = false;
+}
+
+function replayLast() {
+  if (!lastReply || isSpeaking || isListening || isThinking) return;
+  speakReply(lastReply);
+}
+
+// ── TOAST ──────────────────────────────────────
+function showToast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── INIT ──────────────────────────────────────
+setState('idle');
+// Warm up speech recognition on first load
+document.addEventListener('touchstart', () => {}, { once: true, passive: true });
+</script>
+</body>
+</html>
